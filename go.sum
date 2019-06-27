@@ -1,0 +1,10 @@
+github.com/go-redis/redis v6.15.2+incompatible h1:9SpNVG76gr6InJGxoZ6IuuxaCOQwDAhzyXg+Bs+0Sb4=
+github.com/go-redis/redis v6.15.2+incompatible/go.mod h1:NAIEuMOZ/fxfXJIrKDQDz8wamY7mA7PouImQ2Jvg6kA=
+github.com/gorilla/mux v1.7.2 h1:zoNxOV7WjqXptQOVngLmcSQgXmgk4NMz1HibBchjl/I=
+github.com/gorilla/mux v1.7.2/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2zaAs=
+github.com/gorilla/websocket v1.4.0 h1:WDFjx/TMzVgy9VdMMQi2K2Emtwi2QcUQsztZ/zLaH/Q=
+github.com/gorilla/websocket v1.4.0/go.mod h1:E7qHFY5m1UJ88s3WnNqhKjPHQ0heANvMoAMk2YaljkQ=
+github.com/hjson/hjson-go v3.0.0+incompatible h1:mc8olpIxqF8mrEx6ePJOD6wCCOkX7+JcrKgINcJES10=
+github.com/hjson/hjson-go v3.0.0+incompatible/go.mod h1:qsetwF8NlsTsOTwZTApNlTCerV+b2GjYRRcIk4JMFio=
+github.com/morfien101/influxLineProtocolOutput v0.3.0 h1:IJBtB1wc2rA+afHgjJyYag8psf+otrGT0wF5FKks4PQ=
+github.com/morfien101/influxLineProtocolOutput v0.3.0/go.mod h1:HTWUWfd0NZAVuk4928efdfiijErmKEb1Mun0ML6SUT0=
