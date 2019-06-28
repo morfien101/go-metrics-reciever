@@ -31,11 +31,6 @@ var (
 		SocketLifetime: 900,
 	}
 
-	defaultRedisServer = RedisConfig{
-		RedisHost: "172.17.0.1",
-		RedisPort: "6379",
-	}
-
 	defaultInfluxServer = InfluxConfig{
 		InfluxHost:          "http://172.17.0.1",
 		InfluxPort:          "8086",
@@ -44,11 +39,15 @@ var (
 		BatchSize:           5000,
 		SendIntervalSeconds: 2,
 	}
+
+	defaultAuthServer = AuthConfig{
+		AuthHost: "http://172.17.0.1",
+	}
 )
 
 // Config is a struct that holds all the configuration options for the application.
 type Config struct {
-	Redis     RedisConfig     `json:"redis_server"`
+	Auth      AuthConfig      `json:"auth_server"`
 	WebServer WebServerConfig `json:"web_server"`
 	Influx    InfluxConfig    `json:"influx_server"`
 }
@@ -63,11 +62,6 @@ type WebServerConfig struct {
 	SocketLifetime int    `json:"max_sockets_lifetime_seconds"`
 }
 
-type RedisConfig struct {
-	RedisHost string `json:"redis_host"`
-	RedisPort string `json:"redis_port"`
-}
-
 type InfluxConfig struct {
 	InfluxHost          string `json:"host"`
 	InfluxPort          string `json:"port"`
@@ -75,6 +69,10 @@ type InfluxConfig struct {
 	WriteBuffer         int    `json:"write_buffer"`
 	BatchSize           int    `json:"batch_size"`
 	SendIntervalSeconds int    `json:"send_interval"`
+}
+
+type AuthConfig struct {
+	AuthHost string `json:"host"`
 }
 
 // New creates a new configuration struct and returns to to the caller.
@@ -130,8 +128,8 @@ func hydrateConfig(cb []byte) (*Config, error) {
 	// Make new config and set defaults
 	config := new(Config)
 	config.WebServer = defaultWebServer
-	config.Redis = defaultRedisServer
 	config.Influx = defaultInfluxServer
+	config.Auth = defaultAuthServer
 
 	err := json.Unmarshal(cb, config)
 	if err != nil {

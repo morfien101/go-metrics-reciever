@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/morfien101/go-metrics-reciever/config"
-	"github.com/morfien101/go-metrics-reciever/redisengine"
 )
 
 var upgrader = websocket.Upgrader{
@@ -21,24 +21,40 @@ type WebEngine struct {
 	config        config.WebServerConfig
 	router        *mux.Router
 	server        *http.Server
-	redisEngine   *redisengine.RedisEngine
+	authClient    *http.Client
+	authEndpoint  string
 	influxChannel chan []byte
 }
 
-func New(config config.WebServerConfig, redis *redisengine.RedisEngine, influxChannel chan []byte) *WebEngine {
+func New(config config.WebServerConfig, authEndpoint string, influxChannel chan []byte) *WebEngine {
 	we := &WebEngine{
 		config:        config,
-		router:        mux.NewRouter(),
-		redisEngine:   redis,
+		authEndpoint:  authEndpoint,
 		influxChannel: influxChannel,
 	}
-
-	we.router.HandleFunc("/_status", we.getStatus).Methods("GET")
-	we.router.Handle("/metrics", we.authRequired(we.metrics)).Methods("GET")
-
+	we.loadRoutes()
+	we.loadHTTPClient()
 	listenerAddress := we.config.ListenAddress + ":" + we.config.Port
 	we.server = &http.Server{Addr: listenerAddress, Handler: we.router}
 	return we
+}
+
+func (we *WebEngine) loadHTTPClient() {
+	tr := &http.Transport{
+		MaxIdleConns:    20,
+		IdleConnTimeout: 30 * time.Second,
+	}
+	client := &http.Client{
+		Timeout:   time.Second * 3,
+		Transport: tr,
+	}
+	we.authClient = client
+}
+
+func (we *WebEngine) loadRoutes() {
+	we.router = mux.NewRouter()
+	we.router.HandleFunc("/_status", we.getStatus).Methods("GET")
+	we.router.Handle("/metrics", we.authRequired(we.metrics)).Methods("GET")
 }
 
 // ServeHTTP is used to allow the router to start accepting requests before the start is started up. This will help with testing.
@@ -88,23 +104,37 @@ func (we *WebEngine) getStatus(w http.ResponseWriter, r *http.Request) {
 
 func (we *WebEngine) authRequired(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		errStatement := struct {
+			ErrorText string `json:"Error"`
+		}{
+			ErrorText: "",
+		}
 		user, pass, ok := r.BasicAuth()
 		if !ok {
 			setContentJSON(w)
-			w.Write([]byte("{\"error\":\"Credentials not supplied\"}"))
+			errStatement.ErrorText = "Credentials not supplied"
+			b, _ := jsonMarshal(errStatement)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write(b)
 			return
 		}
-		ok, err := we.redisEngine.ValidateAuth(user, pass)
+
+		ok, err := we.validateAuth(user, pass)
 		if err != nil {
-			log.Printf("Error validating creds, Error: %s\n", err)
+			errStatement.ErrorText = "Internal server error"
+			b, _ := jsonMarshal(errStatement)
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(b)
+			log.Printf("Error validating credentials. Error: %s", err)
 			return
 		}
 
 		if !ok {
 			setContentJSON(w)
+			errStatement.ErrorText = "Credentials invalid"
+			b, _ := jsonMarshal(errStatement)
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("{\"error\":\"Credentials invalid\"}"))
+			w.Write(b)
 			return
 		}
 
@@ -127,4 +157,29 @@ func (we *WebEngine) metrics(w http.ResponseWriter, r *http.Request) {
 
 	go ws.readPump()
 	go ws.writePump()
+}
+
+func (we *WebEngine) validateAuth(username, password string) (bool, error) {
+	req, err := http.NewRequest("POST", we.authURL(), nil)
+	if err != nil {
+		return false, err
+	}
+	q := req.URL.Query()
+	q.Set("username", username)
+	q.Set("password", password)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := we.authClient.Do(req)
+	if err != nil {
+		return false, err
+	}
+	if resp.StatusCode == 200 {
+		return true, nil
+	}
+	return false, nil
+
+}
+
+func (we *WebEngine) authURL() string {
+	return fmt.Sprintf("%s/auth", we.authEndpoint)
 }
